@@ -15,9 +15,12 @@ https://github.com/codepath/pathreview-ai301-fa26-s1/issues/72
 
 **Verdict output**
 
-Live-mode run of the installed skill over three candidates (#72, #68, #62). All
-three were accepted; #72 ranked first on fit. Pasted verbatim, ending with the
-fenced JSON block:
+Two live-mode runs of the installed skill, both pasted verbatim.
+
+*Run A — the selection run, three candidates (#72, #68, #62).* This is the run
+that chose the issue: the skill graded each candidate independently, then ranked
+the accepted ones against the fit profile in `scope.md`. All three were accepted
+and #72 ranked first.
 
 ````
 ## Summary
@@ -80,6 +83,52 @@ For issue #68 and #62, an issue-timeline "referenced" event pointed to a commit 
 ```
 ````
 
+*Run B — #72 alone, confirming the verdict on the chosen issue.* Single candidate,
+so the skill emits the single-object form. Verdict: `accept`.
+
+````
+## Summary — Issue #72: `verify_password` raises `UnknownHashError` on malformed stored hashes
+
+| Check | Grade | Evidence |
+|---|---|---|
+| `repo-alive` | pass | Not archived; newest default-branch commit `f89c06f` dated 2026-09-16, 3 days before today (2026-09-19), authored by human `Aburke225`. |
+| `not-claimed` | pass | `assignees: []`, no comments on the issue, no PR (search + timeline) references issue #72. |
+| `not-abandoned-ground` | pass | Zero closed-unmerged PRs found against this issue — no PR history at all. |
+| `scope-bounded` | pass | Single deliverable: make `verify_password` fail closed on `UnknownHashError`, drop the `xfail` marker on the matching test. Names exact files (`core/security.py`, `tests/unit/test_security.py`), estimated 1–2 hours. No umbrella/tracking language, no open design question, no core-internals warning. |
+| `ai-policy-permits` | pass | `CONTRIBUTING.md` sets workflow conditions (branch naming, conventional commits, green CI, xfail-marker removal) but says nothing banning AI-assisted contributions; no `AI_POLICY.md`/`AI_USAGE_POLICY.md` in the repo. Silence passes. |
+| `maintainer-responsive` (preferred) | unclear/fail | Sampled issues #66, #67 (no comments) and #69 (two comments, both `authorAssociation: NONE`, no Owner/Member/Collaborator reply) — no maintainer first-response evidence in the sample. |
+| `newcomer-signposted` (preferred) | pass | Labels `good first issue` + `tier-1` (Starter difficulty), body names the exact files to touch and the test to un-xfail. |
+| `project-in-use` (preferred) | fail | No releases; 1 star. |
+
+All five required checks pass → **verdict: accept**.
+
+**Fit note:** matches the stated profile well — a single-module backend fix in `core/security.py` (the kind of "read a real request path end to end" work being sought), ships with a concrete test to point at, and is scoped to 1–2 hours against a 6–8 hour budget. No Docker/CI infra work, no prompt-tuning, no taste-based acceptance criteria.
+
+```json
+{
+  "item": "https://github.com/codepath/pathreview-ai301-fa26-s1/issues/72",
+  "checks": [
+    {"name": "repo-alive", "grade": "pass", "evidence": "Not archived; newest default-branch commit dated 2026-09-16 (3 days before capture)."},
+    {"name": "not-claimed", "grade": "pass", "evidence": "assignees: []; comments: []; no linked or thread-mentioned PR found via search or timeline."},
+    {"name": "not-abandoned-ground", "grade": "pass", "evidence": "No PRs at all reference issue #72."},
+    {"name": "scope-bounded", "grade": "pass", "evidence": "Bounded bug fix naming core/security.py and tests/unit/test_security.py, estimated 1-2 hours, no umbrella/design/internals red flags."},
+    {"name": "ai-policy-permits", "grade": "pass", "evidence": "CONTRIBUTING.md states workflow conditions only; no AI_POLICY.md/AI_USAGE_POLICY.md; silence on AI-assistance."},
+    {"name": "maintainer-responsive", "grade": "unclear", "evidence": "Sampled issues #66, #67, #69 show no Owner/Member/Collaborator first response."},
+    {"name": "newcomer-signposted", "grade": "pass", "evidence": "Labels 'good first issue' + 'tier-1'; body names exact files and test to modify."},
+    {"name": "project-in-use", "grade": "fail", "evidence": "No releases; 1 star."}
+  ],
+  "verdict": "accept"
+}
+```
+````
+
+The two runs differ on one fact: Run A reported no `CONTRIBUTING.md` in the repo,
+Run B found one and read it. Both graded `ai-policy-permits` as `pass`, because the
+file it found sets workflow conditions (branch naming, conventional commits, green
+CI) and says nothing about AI assistance — and under my rubric conditions pass and
+silence passes, so either reading lands in the same place. I am leaving both
+outputs unedited rather than quietly dropping the run that got the detail wrong.
+
 ---
 
 ## Eval iterations
@@ -105,8 +154,12 @@ Three runs, in order:
 `issue-01` (conda/conda#16475, "Add permanent docs for installing PyPI packages
 with `conda install`").
 
-- My rubric's decision on run 1: **reject**, on `scope-bounded`.
-- Gold label: **accept** (category `clear-accept`).
+- **Gold label: `accept`** (category `clear-accept`).
+- **My rubric's decision, run 1: `reject`**, on the `scope-bounded` check. This is
+  the disagreement I analyse below.
+- **My rubric's decision, final: `accept`** — matching gold. This is the verdict in
+  the committed `eval-run.txt`, whose row reads
+  `issue-01  accept  accept   yes`.
 
 My first version of `scope-bounded` failed an issue when its body "lists separate
 work items" or "leaves a content, asset, or design decision open ('TBD',
@@ -197,11 +250,13 @@ and the test passes. Nothing about "is this good enough" is a matter of taste.
 not.*
 
 The rubric got the mechanical facts right and I trust them: nobody is assigned, no
-open PR references it, the repo was pushed three days before I looked, there is no
-contribution policy to violate, and the body names exact files, so
-`newcomer-signposted` passes on evidence rather than vibes. It also correctly
-refused to let `project-in-use` matter — the repo has one star and no releases,
-which would be damning for a real project and means nothing for a classroom fork.
+open PR references it, the repo was pushed three days before I looked, the
+contribution policy sets workflow conditions but nothing that refuses AI-assisted
+work, and the body names exact files, so `newcomer-signposted` passes on evidence
+rather than vibes. It also correctly refused to let `project-in-use` matter — the
+repo has one star and no releases, which would be damning for a real project and
+means nothing for a classroom fork, and because I weighted that check `preferred`
+it could report the fail without sinking a perfectly good issue.
 
 What it could not weigh is that all three candidates passed. The rubric ranked #72
 first, but its ranking only knows my fit profile as text; it does not know how the

@@ -55,10 +55,9 @@ happened; these entries are the toolkit's own timeline.
 All four entries are graded. Keep every heading below, and fill each
 one in the week it belongs to.
 
-**Unit 5: [one line on the tool work]**
+**Unit 5: turned my unit 1 issue-select skill into a scout that searches GitHub, then fixed the ranking twice**
 
-[2-4 sentences: what you built (the scout, your strategy), what broke
-or fell short, what changed because of it.]
+I installed the scout over my unit 1 rubric and wrote three `gh search issues` queries, two of them scoped with `--owner` to the Python web, API, and data projects my fit profile names, because an unscoped `--language python` search came back full of week-old repos. My first scan accepted 0 of 5, all already claimed, and the cause was my ranking rather than the rubric: "good first issue first, newest first" let the unscoped query fill the top five with issues someone had grabbed days earlier. So I ranked my named projects first, switched the tie-break to oldest-first, and dropped `claimed` labels and classroom repos. A second scan showed those fixes working but still found 0 of 5, now because the label rule promoted years-old threads full of dead PRs, so I ranked `bug` above newcomer labels and added a "new standalone tool" fail clause to `scope-bounded` after litestar#1272 slipped past its listed clauses.
 
 **Unit 6: [one line on the tool work]**
 

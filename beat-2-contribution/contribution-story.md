@@ -11,7 +11,7 @@ files and no evidence uploads are part of Assignment 5.
 **Student:** Kibur Assefa
 **GitHub Username:** newairforces
 **Issue:** https://github.com/openedx/openedx-platform/issues/39094
-**Pull Request:** [GitHub PR link, once opened]
+**Pull Request:** https://github.com/openedx/openedx-platform/pull/39328
 
 One repository, built across units 5 to 8, telling the whole story of your real
 contribution. Fill it as you work, not at the end — the sections below ask for evidence that
@@ -62,10 +62,9 @@ I installed the scout over my unit 1 rubric and wrote three `gh search issues` q
 
 I folded my three voice-guide copies into one file that the guard and all three skills read, added Upstream rules for claims, questions, and pings, and hooked the guard into Claude Code. The wiring test was stopped as intended, and my real claim went out through the hook as a logged `pass`. The guard itself never fought me; what fell short was a tool reading it: repro-check reported "no voice guide" because the guide is now a symlink it didn't follow, so its voice notes on my repro report were silent, and I'll point it at the canonical path. The memory file (`CLAUDE.local.md`, kept out of git with `.git/info/exclude`) records what cost me an hour to find: Open edX's tests need only one Mongo container and SQLite, not the full Tutor stack, plus the exact `uv` and `pytest -c cms/pytest.ini` commands, the files behind my bug, and the AI-policy lines I'm bound by.
 
-**Unit 7: [one line on the tool work]**
+**Unit 7: installed the ship-gate in front of `gh pr create` and wrote a four-check manifest for openedx-platform**
 
-[2-4 sentences: the ship-gate and your gate manifest. What it produced
-on your real branch, what fought you, what changed because of it.]
+My manifest runs four checks taken from `unit-tests.yml`, `pylint-checks.yml`, and my `CLAUDE.local.md`: start the Mongo test container, the two test files I touched, and pylint on the touched files. The full CI shards and module-wide pylint are in the excluded table with dated reasons. What fought me was the fresh-terminal rule: `docker start` exited 127 in a clean shell, so that row calls `/usr/local/bin/docker`. On my branch the gate passed all four checks and pr-precheck gave 6/6 required, but it failed the preferred `thread-engaged` check because my description ignored the maintainer's CLA reply, so I added that line and a pasted `git grep`, re-ran to 8/8, and the hook let PR #39328 through on that pass.
 
 **Unit 8: [one line on the tool work]**
 
@@ -95,26 +94,29 @@ Claim comment: https://github.com/openedx/openedx-platform/issues/39094#issuecom
 
 **Problem Description**
 
-[In your own words, what is broken or missing?]
+Studio's course details API says you can send only the fields you want to change, but it doesn't really work that way. If an API client sends `{"self_paced": true}` to switch a future course to self-paced, the request answers 200 and nothing changes. The Studio MFE never sees this because it always sends the whole form, so this bug only hits other API clients.
 
 **Expected Behavior**
 
-[What should happen?]
+A partial `PUT` changes the fields in the body and leaves every other field alone. `{"self_paced": true}` on a course that hasn't started yet should make it self-paced, keep its start and end dates, and return the new value.
 
 **Current Behavior**
 
-[What actually happens?]
+The pacing change is silently dropped (HTTP 200, `self_paced` still `false`), and worse, the course's stored start date, end date, and enrollment start and end dates are all set to `None`, because any date field missing from the body is written as "no date". I confirmed that on `master` with my repro test.
 
 **Affected Components**
 
-[Which parts of the codebase are involved?]
+- `openedx/core/djangoapps/models/course_details.py`, `CourseDetails.update_from_json`: the five date blocks (`start_date`, `end_date`, `enrollment_start`, `enrollment_end`, `certificate_available_date`), each with `else: converted = None`.
+- `xmodule/course_block.py`, `CourseBlock.can_toggle_course_pacing`: refuses a pacing change when there is no start date, which is why the wiped start date blocks `self_paced`.
+- `cms/djangoapps/contentstore/utils.py`, `update_course_details`: sits between the view and the model, and resets the certificate fields whenever `self_paced` is true.
+- `cms/djangoapps/contentstore/rest_api/v1/views/course_details.py`: the `PUT` view whose docstring promises partial updates.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code inside my clone, with my `CLAUDE.local.md` loaded, used to trace the request from the view to the model, plus my local repro test to check each step against real output.
+- What it produced: the call chain above and one new fact: a fourth repro case (2026-10-31) showed a partial body also wipes `end`, `enrollment_start`, and `enrollment_end`, not just `start` as I'd guessed in my claim.
+- Difficulties: Claude's first explanation stopped at `start_date`, because that was the only field in my claim. I had to ask it to check the other four date blocks, which turned out to have the same bug.
+- What changed: I added the `end_date` and enrollment-date case to my local repro test before writing the plan, so the plan's scope is based on output and not on a guess.
 
 ---
 
@@ -168,93 +170,131 @@ PUT {"self_paced": true, "start_date": "2026-09-24T22:47:49Z"}
 
 **Analysis**
 
-[Your analysis of the root cause: what is causing the issue, traced
-to the files and functions involved.]
+`PUT /api/contentstore/v1/course_details/<course_id>` (`cms/djangoapps/contentstore/rest_api/v1/views/course_details.py`) passes the request body to `update_course_details` in `cms/djangoapps/contentstore/utils.py`, which calls `CourseDetails.update_from_json` in `openedx/core/djangoapps/models/course_details.py`. That method handles each of the five date fields the same way:
+
+```python
+if 'start_date' in jsondict:
+    converted = date.from_json(jsondict['start_date'])
+else:
+    converted = None
+if converted != block.start:
+    dirty = True
+    block.start = converted
+```
+
+So when a key is missing from the body, the field gets set to `None`, the same as if the client had sent `null`. Later in the same method, the `self_paced` branch only runs if `block.can_toggle_course_pacing` is true, and that check (`xmodule/course_block.py`) returns `False` when `block.start` is empty. So for `{"self_paced": true}`, the start date is cleared first, which makes the pacing check fail, and the view still answers 200 with the old value. Both symptoms in my repro (pacing ignored, dates wiped) come from that `else: converted = None`. The issue says the Studio MFE always sends the whole form (the old Backbone settings page is no longer in the repo), which is why the bug only shows up for other API clients.
 
 **Proposed Solution**
 
-[High-level description of your fix approach, and what you are
-deliberately NOT changing.]
+When a date key is missing from the body, keep the course's current value instead of writing `None`. In each of the five `else:` branches I'll change `converted = None` to the block's current value (`block.start`, `block.end`, `block.enrollment_start`, `block.enrollment_end`, `block.certificate_available_date`). That's five one-line changes. An explicit `null` or `""` still clears a date, so the MFE's full-form saves behave exactly as before, and `update_course_details` setting `certificate_available_date` to `None` for self-paced courses still works.
+
+What I'm deliberately not changing:
+- The refusal to change pacing on a course that has already started. `can_toggle_course_pacing` refuses that on purpose. Whether it should answer 400 instead of 200 is the question I asked in my claim, and it hasn't been answered yet, so it stays out of this PR.
+- The certificate reset in `update_course_details` still runs even when the pacing change is refused (only on already-started courses after this fix). That belongs with the 400 question.
+- Other non-date fields in `update_from_json`, the view, the serializer, and the MFE.
 
 **Implementation Plan**
 
-1. [Modify file X to do Y]
-2. [Add or change Z]
-3. [Update tests]
+1. Create branch `fix/39094-partial-put-keeps-dates` from `master`.
+2. In `openedx/core/djangoapps/models/course_details.py`, `update_from_json`: change the five `else: converted = None` lines so they keep the block's current date. Add one short comment saying why (a key left out of the body means "unchanged").
+3. In `openedx/core/djangoapps/models/tests/test_course_details.py`, add a model test: a course with all four schedule dates set, then `update_from_json` with a body that has none of the date keys. All four dates should be unchanged. Also check that sending `None` for a key still clears it.
+4. In `cms/djangoapps/contentstore/rest_api/v1/views/tests/test_course_details.py`, add a view test with the issue's own request: an instructor-paced course starting in 2040, `PUT {"self_paced": true}`. Expect 200, `self_paced` true in the response and the stored course, and the start date unchanged.
+5. Run both new tests on `master` without the fix and confirm they fail, then with the fix and confirm they pass. Re-run my local repro test, then run my manifest's checks (both test files and pylint on the touched files).
+6. Commit using Conventional Commits (`fix: ...`, `test: ...`), with a `Co-authored-by` trailer, as the Open edX AI policy asks.
 
-[Record deviations here as they happen: what changed mid-build and
-why. A recorded deviation is honest work; silent drift is not.]
+Unknowns: I can't run the full CMS test shards here (they need CI's MySQL and other services), so other callers of `update_course_details` are only covered once CI runs. If something in there depends on a missing key clearing a date, CI is where it'll show up.
+
+Deviations: none yet.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: plan-check, my unit 3 skill with the real-repo scope, grading `plan.md` (this section) and a draft plan comment together.
+- What it produced: accept, 5/5 required checks (cause-grounded, scope-bounded, executable, test-plan-decisive, thread-aligned). It failed the preferred `unknowns-stated` check because every step read as settled, and its voice notes caught a result I described without pasting, plus a line ("happy to handle it in a follow-up") that came close to promising a PR.
+- Difficulties: the first run graded nothing. Run as `claude -p` from my clone, it couldn't read its own files in `~/.claude/skills/`, and it returned a placeholder reject instead of guessing, which is the right failure. It also flagged a stale note saying my CLA wasn't signed: my `CLAUDE.local.md` was a week out of date.
+- What changed: I re-ran it with `--add-dir ~/.claude`, added the Unknowns line above, pasted the repro output into the comment, softened the follow-up line, and updated the CLA line in `CLAUDE.local.md`. The procedure also has a gap it named itself: no rule for grading `cause-grounded` when the repro was never posted on the thread.
 
 ---
 
 ## Testing Strategy
 
-[What observable checks prove the fix: your reproduction steps re-run
-against the built change (before and after), and the repo's own test
-suite or checks with the outcome shown. "Tests pass" with nothing
-observable named is not a strategy.]
+Three layers, each with output I kept:
+
+1. **The two new tests fail without the fix.** I wrote them before touching `course_details.py` and ran them on the unfixed code:
+   ```
+   E       assert False is True
+   FAILED .../views/tests/test_course_details.py::CourseDetailsViewTest::test_put_partial_body_self_paced
+   E               AssertionError: start_date
+   E               assert None == datetime.datetime(2040, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key='UTC'))
+   FAILED .../models/tests/test_course_details.py::CourseDetailsTestCase::test_partial_update_keeps_dates
+   ```
+   The view test sends the issue's own request, `PUT {"self_paced": true}`, to a course starting in 2040. The model test sends a body with no date keys and checks that all four schedule dates survive, then sends `{"end_date": None}` to prove an explicit null still clears a date.
+2. **My reproduction, re-run before and after.** The same local repro test from Reproduction Process, plus a fourth case with end and enrollment dates set:
+   ```
+   before:  -> HTTP 200, response self_paced=False
+            -> stored block.start=None block.self_paced=False
+            -> stored end=None enrollment_start=None enrollment_end=None
+   after:   -> HTTP 200, response self_paced=True
+            -> stored block.start=2040-01-01 00:00:00+00:00 block.self_paced=True
+            -> stored end=2041-01-01 00:00:00+00:00 enrollment_start=2039-06-01 00:00:00+00:00 enrollment_end=2039-12-01 00:00:00+00:00
+   ```
+   The already-started case still answers 200 with `self_paced=False` after the fix, which is the behavior I left alone on purpose.
+3. **The repo's own checks on the branch:** view tests `41 passed` (40 before, plus mine), model tests `27 passed` (26 plus mine), pylint on the three touched files clean, and, as an extra check outside the manifest, the older `cms/djangoapps/contentstore/tests/test_course_settings.py`, which also goes through `update_from_json`: `81 passed`. Not run: the full CI shards and module-wide pylint (they need CI services and the dev group). CI covers those once a maintainer starts it.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: the ship-gate, running my manifest's four checks in a clean shell and then my pr-precheck against `test_evidence.md` (the before and after outputs above, plus the check output).
+- What it produced: all four checks `ok` (Mongo 0s, view tests 21s, model tests 14s, pylint 15s), and pr-precheck passed `repro-rerun-decisive` and `repo-checks-run`, quoting the before and after `self_paced` and `block.start` lines as its evidence.
+- Difficulties: the clean shell is not my terminal. `docker` isn't on the bare PATH, so the Mongo row exited 127 when I tested it by hand, and I only found out because I tested every row in a clean `env -i` shell before trusting the manifest.
+- What changed: the Mongo row calls `/usr/local/bin/docker` directly. I also ran the wider `test_course_settings.py`, which isn't in the manifest, to cover the plan's stated unknown as far as I could locally.
 
 ---
 
 ## Implementation Notes
 
-[A running log, added to as you work. Date each entry. What you
-built, decisions you made when you made them, wrong turns included.]
+**2026-10-31, morning: scope grew from one date to five**
 
-**[Date]**
+Before planning, I added a fourth case to my local repro to test my claim's guess about `end_date`. It was worse than I guessed: `{"self_paced": true}` also wiped `end`, `enrollment_start`, and `enrollment_end`. So the plan covers all five `else: converted = None` branches in `update_from_json`, not just `start_date`. I considered fixing only `start_date`, since that alone fixes the issue's symptom, but the other four are the same one-line bug a line apart, and a reviewer would fairly ask why I left them.
 
-[Entry]
+**2026-10-31: tests first, then the fix**
 
-**[Date]**
+On branch `fix/39094-partial-put-keeps-dates`, I wrote the view test and the model test and ran them on the unfixed code, which gave two failures (output in Testing Strategy). Then I changed the five `else` branches to `converted = block.<field>`, with one comment saying a missing key means "unchanged". I checked `Date().from_json("")` and `from_json(None)` first: both return `None`, so an explicit `null` or `""` from the MFE still clears a date. One wrong turn: my plan first said the old Backbone settings page also sends every key, but `git grep` showed that JS isn't in the repo anymore, so I cut that claim.
 
-[Entry]
+**2026-10-31: commit identity**
+
+Before committing, I found the clone would commit as `KPROsoft21`, my machine's global git identity, not the `newairforces` account that signed the CLA. I set a repo-local `user.email` to the `newairforces` noreply address, so the CLA check can match the commits. Two commits, Conventional Commits style (`fix:` for the code, `test:` for the tests), each with the `Co-authored-by: Claude` trailer that Open edX's AI policy asks for.
+
+**2026-10-31: PR opened**
+
+The ship-gate passed twice: first with the preferred `thread-engaged` failing, then 8/8 after I added the CLA line and pasted a `git grep` of the callers. I pushed to my fork, set `gh repo set-default openedx/openedx-platform`, and opened #39328 through Claude Code. The hook honored the manual pass and the voice guard logged `pass`. Then I posted the follow-up my claim promised on the issue, linking the PR. Deviations from the plan: none in the code. The plan's six steps happened as written.
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: Claude Code in my clone, with `CLAUDE.local.md`, for the edits, the test runs, and the commits, and my local repro test as the before and after measuring stick.
+- What it produced: a 5-line fix plus 2 tests (53 insertions, 5 deletions across 3 files), two commits, and the saved before and after output that became `test_evidence.md`.
+- Difficulties: the global git identity was the wrong account, which nothing warned me about, and the voice guard stopped my follow-up comment twice, once for a diagnosis written as an observation and once for "both fail without the fix" with no output.
+- What changed: a repo-local git identity for this clone, and I split the comment's observation from its diagnosis and pasted the failing test output before it posted.
 
 ---
 
 ## Pull Request
 
-**PR Link:** [GitHub PR URL when opened]
+**PR Link:** https://github.com/openedx/openedx-platform/pull/39328
 
-**PR Description:** [what the PR says; much of the content above
-adapts into it]
+**PR Description:** Title: `fix: keep course dates that a partial course_details PUT leaves out`. It follows the repo's PR template. The **Description** says `update_from_json` wrote `None` into every date field missing from the body, so `{"self_paced": true}` cleared the start date, `can_toggle_course_pacing` then refused, and the view answered 200 anyway. The fix keeps the stored value when a key is missing, and an explicit `null` or `""` still clears. Roles affected: Developer, and Course Author indirectly. It names what it doesn't change: the refusal for already-started courses (the open 400 question from my claim) and the certificate reset that goes with it. **Supporting information** has `Fixes #39094`, a link to my claim, and a note that I've signed the CLA. **Testing instructions** give the two pytest commands, the two new tests failing on unfixed code, my repro's before and after, and every check I ran with its output, plus what I didn't run and why. **Other information** pastes a `git grep` of the callers to show the one risk (a client relying on a missing key to clear a date) and ends with the AI disclosure: Claude helped trace the code, write the tests and the repro, and draft the description, and the commits carry a `Co-authored-by` trailer.
 
 **Maintainer Feedback:**
 
-- [Date]: [feedback received, or "none yet"; silence is a normal
-  state and costs you nothing]
-- [Date]: [how you addressed it]
+- 2026-10-31: the `openedx-webhooks` bot added the `open-source-contribution` label and its checklist: product review if needed, context, CLA, and a green build. The CLA item still shows unsigned, and the bot says a signature can take a business day to process. Before that, on the issue, @bmtcril had asked me to sign the CLA before any PR could be approved or tested. I answered in the PR description and in my follow-up comment (https://github.com/openedx/openedx-platform/issues/39094#issuecomment-6549065873).
+- 2026-10-31: no review yet. CI for a first-time contributor waits for a maintainer to start it.
 
-**Status:** [Awaiting review / Iterating / Merged / Closed. The
-status is a fact you record, never a grade: the PR is graded as
-opened.]
+**Status:** Awaiting review
 
 **Toolkit**
 
-- Tool:
-- What it produced:
-- Difficulties:
-- What changed:
+- Tool: the ship-gate (`check_gate.py`), by hand on my branch and then as the `PreToolUse` hook on `gh pr create`, together with my unit 6 voice guard.
+- What it produced: two hand runs, both `ship-gate: PASS`. The first had pr-precheck at 6/6 required with the preferred `thread-engaged` failing. The second, after my fixes, was 8/8. The hook then logged `PASS (honored the manual pass at 16:56)` without re-running anything, and the voice guard logged `pass` on the PR body.
+- Difficulties: none blocking at the gate itself. The install test was confusing, though: Claude reported only the ship-gate's stop, so I had to feed the same payload to `check_voice.py` by hand to see that the voice guard also stopped it, as the two-stop test expects.
+- What changed: the PR description gained the CLA line and the pasted `git grep` because of the first run's notes. Every edit invalidates the 30-minute pass, so I re-ran the gate instead of opening on the stale one.
 
 ---
 

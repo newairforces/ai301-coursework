@@ -268,7 +268,7 @@ The ship-gate passed twice: first with the preferred `thread-engaged` failing, t
 
 **2026-11-07: CLA blocker instead of review**
 
-The PR monitor's `--state` showed one failing check, and it turned out to be `openedx/cla`, not a test: CI can't start until it's green. @mphilbrick211 had commented on 2026-11-04 asking for the CLA form. I'd already signed it on 2026-10-24, so I replied with the date, my username, and the red check output, and asked them to check the record instead of re-pushing anything. There were no code changes, so the branch is unchanged at `67c37d8732`.
+The PR monitor's `--state` showed one failing check, and it turned out to be `openedx/cla`, not a test: CI can't start until it's green. @mphilbrick211 had commented on 2026-11-04 asking for the CLA form. I thought I'd already signed it on 2026-10-24 and replied saying so, but that form had only requested the agreement. The real one arrived by DocuSign the same day, so I signed it and posted a correction asking for the check to be re-run. There were no code changes, so the branch is unchanged at `67c37d8732`.
 
 **Toolkit**
 
@@ -290,6 +290,7 @@ The PR monitor's `--state` showed one failing check, and it turned out to be `op
 - 2026-10-31: the `openedx-webhooks` bot added the `open-source-contribution` label and its checklist: product review if needed, context, CLA, and a green build. The CLA item still shows unsigned, and the bot says a signature can take a business day to process. Before that, on the issue, @bmtcril had asked me to sign the CLA before any PR could be approved or tested. I answered in the PR description and in my follow-up comment (https://github.com/openedx/openedx-platform/issues/39094#issuecomment-6549065873).
 - 2026-11-04: @mphilbrick211 (Open edX community team) welcomed the PR and said the `openedx/cla` check would turn green once a CLA form was on file, with a link to the individual form.
 - 2026-11-07: I replied that I'd signed the individual form on 2026-10-24 as `newairforces` and received the confirmation email. I pasted the still-red check status and asked whether it was recorded under that username or I need to sign again (https://github.com/openedx/openedx-platform/pull/39328#issuecomment-6712982218). No code review yet: CI and review wait on the CLA check.
+- 2026-11-07: Michelle Philbrick (@mphilbrick211) then sent the actual agreement by DocuSign. The form I'd filled out on 2026-10-24 had only requested it, so my earlier comment was wrong. I signed it the same day and posted a correction asking for the check to be re-run (https://github.com/openedx/openedx-platform/pull/39328#issuecomment-6713065536).
 
 **Status:** Awaiting review
 

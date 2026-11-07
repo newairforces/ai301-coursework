@@ -56,7 +56,7 @@ one in the week it belongs to.
 
 **Unit 5: turned my unit 1 issue-select skill into a scout that searches GitHub, then fixed the ranking twice**
 
-I installed the scout over my unit 1 rubric and wrote three `gh search issues` queries, two of them scoped with `--owner` to the Python web, API, and data projects my fit profile names, because an unscoped `--language python` search came back full of week-old repos. My first scan accepted 0 of 5, all already claimed, and the cause was my ranking rather than the rubric: "good first issue first, newest first" let the unscoped query fill the top five with issues someone had grabbed days earlier. So I ranked my named projects first, switched the tie-break to oldest-first, and dropped `claimed` labels and classroom repos. A second scan showed those fixes working but still found 0 of 5, now because the label rule promoted years-old threads full of dead PRs, so I ranked `bug` above newcomer labels and added a "new standalone tool" fail clause to `scope-bounded` after litestar#1272 slipped past its listed clauses.
+I installed the scout over my unit 1 rubric and wrote three `gh search issues` queries, two of them scoped with `--owner` to the Python web, API, and data projects my fit profile names, because an unscoped `--language python` search came back full of week-old repos. My first scan accepted 0 of 5, all already claimed, and the cause was my ranking rather than the rubric: "good first issue first, newest first" let the unscoped query fill the top five with issues someone had grabbed days earlier. So I ranked my named projects first, switched the tie-break to oldest-first, and dropped `claimed` labels and classroom repos. A second scan's top five had no claimed issues left, which is how I knew those fixes worked, but it still accepted 0 of 5, now because the label rule promoted years-old threads full of dead PRs, so I ranked `bug` above newcomer labels and added a "new standalone tool" fail clause to `scope-bounded` after litestar#1272 slipped past its listed clauses.
 
 **Unit 6: installed a voice guard on everything I post, and gave Claude a memory file for openedx-platform**
 
@@ -66,10 +66,9 @@ I folded my three voice-guide copies into one file that the guard and all three 
 
 My manifest runs four checks taken from `unit-tests.yml`, `pylint-checks.yml`, and my `CLAUDE.local.md`: start the Mongo test container, the two test files I touched, and pylint on the touched files. The full CI shards and module-wide pylint are in the excluded table with dated reasons. What fought me was the fresh-terminal rule: `docker start` exited 127 in a clean shell, so that row calls `/usr/local/bin/docker`. On my branch the gate passed all four checks and pr-precheck gave 6/6 required, but it failed the preferred `thread-engaged` check because my description ignored the maintainer's CLA reply, so I added that line and a pasted `git grep`, re-ran to 8/8, and the hook let PR #39328 through on that pass.
 
-**Unit 8: [one line on the tool work]**
+**Unit 8: added a PR monitor with a playbook built from openedx-platform's real response times**
 
-[2-4 sentences: the PR-monitor and your playbook. What it read, what it
-drafted, what you did with the draft.]
+I wrote my playbook from measured data: five recent merged outside PRs got a first review in 0 to 4 days, but all from authors who already had CLAs, so my threshold is 10 days after the CLA turns green, and an "admin blockers first" rule keeps the clock stopped while `openedx/cla` is red. The monitor read my PR as FEEDBACK-IN (a community-team comment about the CLA, not a code review) and drafted a reply asking them to re-check my signature, but it left an `<email used on the form>` placeholder and assumed facts only I could confirm. I confirmed I'd signed as `newairforces` and had the confirmation email, then rewrote the reply without my email, since the thread is public. My voice guard stopped it once for a missing AI disclosure the draft never had, so I added one, and it posted on the second try.
 
 ---
 
@@ -267,6 +266,10 @@ Before committing, I found the clone would commit as `KPROsoft21`, my machine's 
 
 The ship-gate passed twice: first with the preferred `thread-engaged` failing, then 8/8 after I added the CLA line and pasted a `git grep` of the callers. I pushed to my fork, set `gh repo set-default openedx/openedx-platform`, and opened #39328 through Claude Code. The hook honored the manual pass and the voice guard logged `pass`. Then I posted the follow-up my claim promised on the issue, linking the PR. Deviations from the plan: none in the code. The plan's six steps happened as written.
 
+**2026-11-07: CLA blocker instead of review**
+
+The PR monitor's `--state` showed one failing check, and it turned out to be `openedx/cla`, not a test: CI can't start until it's green. @mphilbrick211 had commented on 2026-11-04 asking for the CLA form. I'd already signed it on 2026-10-24, so I replied with the date, my username, and the red check output, and asked them to check the record instead of re-pushing anything. There were no code changes, so the branch is unchanged at `67c37d8732`.
+
 **Toolkit**
 
 - Tool: Claude Code in my clone, with `CLAUDE.local.md`, for the edits, the test runs, and the commits, and my local repro test as the before and after measuring stick.
@@ -285,7 +288,8 @@ The ship-gate passed twice: first with the preferred `thread-engaged` failing, t
 **Maintainer Feedback:**
 
 - 2026-10-31: the `openedx-webhooks` bot added the `open-source-contribution` label and its checklist: product review if needed, context, CLA, and a green build. The CLA item still shows unsigned, and the bot says a signature can take a business day to process. Before that, on the issue, @bmtcril had asked me to sign the CLA before any PR could be approved or tested. I answered in the PR description and in my follow-up comment (https://github.com/openedx/openedx-platform/issues/39094#issuecomment-6549065873).
-- 2026-10-31: no review yet. CI for a first-time contributor waits for a maintainer to start it.
+- 2026-11-04: @mphilbrick211 (Open edX community team) welcomed the PR and said the `openedx/cla` check would turn green once a CLA form was on file, with a link to the individual form.
+- 2026-11-07: I replied that I'd signed the individual form on 2026-10-24 as `newairforces` and received the confirmation email. I pasted the still-red check status and asked whether it was recorded under that username or I need to sign again (https://github.com/openedx/openedx-platform/pull/39328#issuecomment-6712982218). No code review yet: CI and review wait on the CLA check.
 
 **Status:** Awaiting review
 
@@ -302,25 +306,34 @@ The ship-gate passed twice: first with the preferred `thread-engaged` failing, t
 
 **Technical Skills Gained**
 
-[What you learned technically, named concretely.]
+- How Studio's course details API reaches storage in Open edX: the DRF view in `cms/djangoapps/contentstore/rest_api/v1/views/course_details.py`, then `update_course_details` in `cms/djangoapps/contentstore/utils.py`, then `CourseDetails.update_from_json`, then the modulestore, and how `CourseBlock.can_toggle_course_pacing` sits in the middle of that.
+- That "absent" and "null" are different things in a partial-update API, and that collapsing them into `None` silently destroys data. That one `else: converted = None` was both symptoms of my bug.
+- Running a giant Django project's tests without its official dev stack: one `mongo:7` container plus SQLite (from reading `cms/envs/test.py`), `uv sync --group testing --frozen`, and the right `pytest -c cms/pytest.ini` config for CMS versus LMS paths.
+- Writing tests that fail first: I ran both new tests on the unfixed code and kept the failure output as evidence.
+- Open edX process: Conventional Commits (OEP-51), the PR template, `Co-authored-by` trailers under their AI policy, and the CLA check that gates CI for first-time contributors.
 
 **Challenges Overcome**
 
-[What was hard and how you solved it; point at the real events, the
-Toolkit blocks above are full of them.]
+- **Finding an issue at all.** My scout's first two scans accepted 0 of 5 because of my ranking rules, not the rubric. I fixed the ranking twice (Unit 5 entry) and ended up picking from the Issue Selection site, with the scout grading the picks.
+- **Setting up the environment.** Tutor would have eaten my week. I read the test settings, used one Mongo container, and proved the setup with the existing 40 tests before trusting it (Reproduction Process).
+- **The bug was wider than the issue.** My repro showed the partial body also wipes the start date. A fourth case on 2026-10-31 showed it wipes end and enrollment dates too, so I widened the plan with evidence, not a guess (Implementation Notes).
+- **My own tools pushing back.** repro-check rejected my first report as not rerunnable. plan-check couldn't read its own files in print mode. pr-precheck failed `thread-engaged` because I ignored the maintainer's CLA comment. The voice guard stopped three of my posts. Each stop named a real problem, and I fixed the draft instead of getting around the tool.
+- **Wrong git identity.** The clone would have committed as my other GitHub account. I caught it before the first commit and set a repo-local identity, so the CLA check could match the commits.
 
 **What I'd Do Differently Next Time**
 
-[Reflection on your process.]
+- Confirm admin requirements end to end before opening the PR. I signed the CLA, but I never checked that the `openedx/cla` check could see it, so my PR has sat a week with CI blocked. Next time I'd open a tiny draft PR, or check the CLA status page, before the real one.
+- Test the guess in the claim before posting it. My claim named only `start_date`, and one more repro case would have shown all four dates.
+- Keep `CLAUDE.local.md` current. plan-check flagged that it still said "CLA not signed" a week after I'd signed.
+- Give my skills a real-repo dry run earlier. Several rubric fixes (`claim-is-bounded`, the voice-guide symlink, `ai-policy-permits` reading the org's `.github` repo) only showed up when they met a real project.
 
 ---
 
 ## Resources Used
 
-[What actually helped, not a reading list. List things this story
-already shows you using: the doc you followed to set the environment
-up, the thread that explained the bug, the person who answered you.
-One real entry beats ten plausible ones.]
-
-- [Link to documentation that helped]
-- [Discussion, issue, or post that helped]
+- The issue itself, with its control case ("adding the course's own `start_date` makes it work"), which pointed straight at the date handling: https://github.com/openedx/openedx-platform/issues/39094
+- @bmtcril's reply on the issue, pointing me to Open edX's contributor onboarding and the CLA: https://docs.openedx.org/en/latest/developers/quickstarts/so_you_want_to_contribute.html
+- Open edX's org-wide AI policy, which set my disclosure lines and commit trailers: https://github.com/openedx/.github/blob/master/AI_POLICY.md
+- OEP-51 on Conventional Commits, for the commit and PR titles: https://open-edx-proposals.readthedocs.io/en/latest/oep-0051-bp-conventional-commits.html
+- The repo's own `cms/envs/test.py` and `.github/workflows/unit-tests.yml`, which showed I needed only Mongo plus SQLite, and which pytest flags CI uses.
+- @mphilbrick211's comment on my PR, which showed me the CLA check was still the blocker: https://github.com/openedx/openedx-platform/pull/39328
